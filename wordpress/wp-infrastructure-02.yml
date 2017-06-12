@@ -1,0 +1,45 @@
+Parameters:
+  EnvironmentSize:
+    Type: String
+    Default: SMALL
+    AllowedValues:
+      - SMALL
+      - MEDIUM
+      - LARGE
+    Description: Select environment size (SMALL, MEDIUM, LARGE)
+Mappings:
+  Regions:
+    us-east-1:
+      AmazonLinux: ami-c58c1dd3
+    us-east-2:
+      AmazonLinux: ami-4191b524
+    us-west-2:
+      AmazonLinux: ami-4836a428
+  EnvSize:
+    SMALL:
+      EC2: t2.micro
+      DB: db.t2.micro
+    MEDIUM:
+      EC2: t2.small
+      DB: db.t2.small
+    LARGE:
+      EC2: t2.medium
+      DB: db.t2.medium
+Resources:
+  DB:
+    Type: "AWS::RDS::DBInstance"
+    Properties:
+      AllocatedStorage: 5
+      StorageType: gp2
+      DBInstanceClass: !FindInMap [ EnvSize, !Ref EnvironmentSize, DB ]
+      DBName: wordpress
+      Engine: MySQL
+      MasterUsername: wordpress
+      MasterUserPassword: W0rdp43ss
+  EC2:
+    Type: "AWS::EC2::Instance"
+    Properties:
+      ImageId: !FindInMap [ Regions, !Ref "AWS::Region" , AmazonLinux ]
+      InstanceType: !FindInMap [ EnvSize, !Ref EnvironmentSize, EC2 ]
+  S3:
+    Type: "AWS::S3::Bucket"

@@ -1,0 +1,74 @@
+Parameters:
+  EnvironmentSize:
+    Type: String
+    Default: SMALL
+    AllowedValues:
+      - SMALL
+      - MEDIUM
+      - LARGE
+    Description: Select environment size (SMALL, MEDIUM, LARGE)
+  DBName:
+    Type: String
+    Default: wordpress
+    Description: Name of the database
+  DBUser:
+    Type: String
+    Default: wordpress
+    Description: Database Root User
+  DBPassword:
+    Type: String
+    Default: W0rdp43ss
+    NoEcho: true
+    Description: Database Root Password
+Mappings:
+  RegionMap:
+    us-east-1:
+      AmazonLinux: ami-c58c1dd3
+    us-east-2:
+      AmazonLinux: ami-4191b524
+    us-west-2:
+      AmazonLinux: ami-4836a428
+  EnvSize:
+    SMALL:
+      EC2: t2.micro
+      DB: db.t2.micro
+    MEDIUM:
+      EC2: t2.small
+      DB: db.t2.small
+    LARGE:
+      EC2: t2.medium
+      DB: db.t2.medium
+Resources:
+  DB:
+    Type: "AWS::RDS::DBInstance"
+    Properties:
+      AllocatedStorage: 5
+      StorageType: gp2
+      DBInstanceClass: !FindInMap [ EnvSize, !Ref EnvironmentSize, DB ]
+      DBName: !Ref DBName
+      Engine: MySQL
+      MasterUsername: !Ref DBUser
+      MasterUserPassword: !Ref DBPassword
+  EC2:
+    Type: "AWS::EC2::Instance"
+    Properties:
+      ImageId: !FindInMap [ RegionMap, !Ref "AWS::Region" , AmazonLinux ]
+      InstanceType: !FindInMap [ EnvSize, !Ref EnvironmentSize, EC2 ]
+      UserData:
+        "Fn::Base64": !Sub |
+          #!/bin/bash
+          yum install httpd php mysql php-mysql -y
+          yum update -y
+          chkconfig httpd on
+          service httpd start
+          cd /var/www/html
+          wget https://wordpress.org/latest.tar.gz
+          tar -zxvf latest.tar.gz --strip 1
+          rm latest.tar.gz
+          cp wp-config-sample.php wp-config.php
+          sed -i 's/database_name_here/${DBName}/g' wp-config.php
+          sed -i 's/localhost/${DB.Endpoint.Address}/g' wp-config.php
+          sed -i 's/username_here/${DBUser}/g' wp-config.php
+          sed -i 's/password_here/${DBPassword}/g' wp-config.php
+  S3:
+    Type: "AWS::S3::Bucket"
